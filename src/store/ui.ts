@@ -8,6 +8,15 @@ export interface Toast {
   kind: 'info' | 'error';
 }
 
+export interface ContextMenuState {
+  /** Screen position of the click. */
+  x: number;
+  y: number;
+  target: 'node' | 'edge' | 'canvas';
+  /** Board position of the click, for "add here" and "paste here". */
+  world: { x: number; y: number };
+}
+
 /** Per-device preferences, remembered in localStorage. */
 interface Prefs {
   theme: Theme;
@@ -42,7 +51,10 @@ interface UIState extends Prefs {
   /** Ids matching the current search, or null when not searching. Non-matches are dimmed. */
   searchMatches: Set<string> | null;
   toasts: Toast[];
+  contextMenu: ContextMenuState | null;
 
+  openContextMenu: (menu: ContextMenuState) => void;
+  closeContextMenu: () => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   setSearchOpen: (open: boolean) => void;
@@ -62,7 +74,10 @@ export const useUI = create<UIState>()((set, get) => ({
   shortcutsOpen: false,
   searchMatches: null,
   toasts: [],
+  contextMenu: null,
 
+  openContextMenu: (contextMenu) => set({ contextMenu }),
+  closeContextMenu: () => set((s) => (s.contextMenu ? { contextMenu: null } : s)),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setSearchOpen: (searchOpen) => set(searchOpen ? { searchOpen } : { searchOpen, searchMatches: null }),

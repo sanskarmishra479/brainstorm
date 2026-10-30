@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Canvas } from './components/Canvas';
+import { ContextMenu } from './components/ContextMenu';
 import { Dock } from './components/Dock';
 import { Minimap } from './components/Minimap';
 import { SearchPanel } from './components/SearchPanel';
@@ -35,6 +36,7 @@ export function App() {
       <SearchPanel />
       <Minimap />
       <Dock />
+      <ContextMenu />
       <Toasts />
       <ShortcutsDialog />
     </>

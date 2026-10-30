@@ -37,12 +37,16 @@ export function addCardAtCenter() {
   return addCardAt(p.x + CARD_WIDTH / 2, p.y + 24);
 }
 
+export function addTextAt(x: number, y: number) {
+  const s = useBoard.getState();
+  s.setTool('select');
+  return s.addNode(createText(x - TEXT_WIDTH / 2, y - 20), { edit: true });
+}
+
 export function addTextAtCenter() {
   const c = worldCenter();
   const p = freeSpot(c.x, c.y, TEXT_WIDTH, 40);
-  const s = useBoard.getState();
-  s.setTool('select');
-  return s.addNode(createText(p.x, p.y), { edit: true });
+  return addTextAt(p.x + TEXT_WIDTH / 2, p.y + 20);
 }
 
 /** Wrap the selection in a group, or drop an empty group in view. */
@@ -55,9 +59,8 @@ export function addGroup() {
 }
 
 /** Turn pasted plain text into a card: first line as title, the rest as body. */
-export function addCardFromText(text: string) {
+export function addCardFromText(text: string, p = placementPoint()) {
   const [first, ...rest] = text.trim().split('\n');
-  const p = placementPoint();
   const s = useBoard.getState();
   s.setTool('select');
   return s.addNode(createCard(p.x - CARD_WIDTH / 2, p.y - 24, { title: first.slice(0, 200), body: textToDoc(rest.join('\n').trim()) }), {

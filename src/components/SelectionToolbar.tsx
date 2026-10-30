@@ -4,6 +4,7 @@ import { boundsOf } from '../lib/geometry';
 import { tidyUp } from '../lib/layout';
 import { rectOf } from '../lib/nodes';
 import { useBoard } from '../store/board';
+import { useUI } from '../store/ui';
 import { NODE_COLORS, TEXT_SIZES, type NodePatch } from '../types';
 import { GroupIcon, RefreshIcon, TidyIcon, TrashIcon, UngroupIcon } from './Icons';
 
@@ -12,7 +13,9 @@ const stop = (e: SyntheticEvent) => e.stopPropagation();
 /** Floating actions above the selection. Counter-scaled so it stays the same size at any zoom. */
 export function SelectionToolbar() {
   const nodes = useBoard(useShallow((s) => s.selectedIds.map((id) => s.nodes[id]).filter(Boolean)));
-  const hidden = useBoard((s) => s.dragging || s.editingId !== null || s.pending !== null);
+  const busy = useBoard((s) => s.dragging || s.editingId !== null || s.pending !== null);
+  const menuOpen = useUI((s) => s.contextMenu !== null);
+  const hidden = busy || menuOpen;
   if (nodes.length === 0 || hidden) return null;
 
   const s = useBoard.getState();

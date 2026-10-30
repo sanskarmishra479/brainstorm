@@ -14,6 +14,7 @@ import { isGroup, rectOf } from '../lib/nodes';
 import { addImageFiles, addLinkAt, normalizeUrl } from '../lib/media';
 import { cancelActiveDrag, isDoubleTap, isTypingTarget, trackPointer } from '../lib/pointer';
 import { useBoard } from '../store/board';
+import { useUI } from '../store/ui';
 import { Edges } from './Edges';
 import { Guides } from './Guides';
 import { GroupView } from './GroupView';
@@ -212,6 +213,26 @@ export function Canvas() {
     }
   };
 
+  /** Right-click: a menu for the node or connection under the pointer, or for the canvas itself. */
+  const onContextMenu = (e: ReactMouseEvent) => {
+    if (isTypingTarget(e.target)) return; // keep the browser's menu (spellcheck, copy) in text fields
+    e.preventDefault();
+    const s = useBoard.getState();
+    const el = e.target as Element;
+    const nodeId = el.closest<HTMLElement>('[data-node-id]')?.dataset.nodeId;
+    const edgeId = el.closest<HTMLElement | SVGElement>('[data-edge-id]')?.dataset.edgeId;
+    s.setEditing(null);
+    let target: 'node' | 'edge' | 'canvas' = 'canvas';
+    if (nodeId && !el.hasAttribute('data-canvas-bg')) {
+      if (!s.selectedIds.includes(nodeId)) s.select([nodeId]);
+      target = 'node';
+    } else if (edgeId) {
+      s.selectEdge(edgeId);
+      target = 'edge';
+    }
+    useUI.getState().openContextMenu({ x: e.clientX, y: e.clientY, target, world: screenToWorld(e.clientX, e.clientY) });
+  };
+
   const onDoubleClick = (e: ReactMouseEvent) => {
     if (!isBackground(e) || handMode) return;
     const p = screenToWorld(e.clientX, e.clientY);
@@ -261,6 +282,7 @@ export function Canvas() {
       onPointerMove={(e) => Object.assign(pointer, { x: e.clientX, y: e.clientY, inside: true })}
       onPointerLeave={() => (pointer.inside = false)}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
       onDragOver={onDragOver}
       onDrop={onDrop}
     >

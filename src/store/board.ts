@@ -72,6 +72,8 @@ interface BoardState {
   deleteSelection: () => void;
   groupSelection: () => string | null;
   ungroup: (id: string) => void;
+  /** Move nodes to the top or bottom of the stacking order (render order follows key order). */
+  reorder: (ids: string[], to: 'front' | 'back') => void;
 
   connect: (from: string, to: string) => string | null;
   updateEdge: (id: string, patch: Partial<Edge>) => void;
@@ -252,6 +254,17 @@ export const useBoard = create<BoardState>()((set, get) => ({
       ...withoutNodes(s.nodes, s.edges, [id]),
       selectedIds: s.selectedIds.filter((x) => x !== id),
     }));
+  },
+
+  reorder: (ids, to) => {
+    const moving = new Set(ids.filter((id) => get().nodes[id]));
+    if (moving.size === 0) return;
+    get().checkpoint();
+    set((s) => {
+      const picked = Object.entries(s.nodes).filter(([id]) => moving.has(id));
+      const rest = Object.entries(s.nodes).filter(([id]) => !moving.has(id));
+      return { nodes: Object.fromEntries(to === 'front' ? [...rest, ...picked] : [...picked, ...rest]) };
+    });
   },
 
   connect: (from, to) => {

@@ -1,4 +1,5 @@
 import { useBoard } from '../store/board';
+import { useUI } from '../store/ui';
 import type { BoardNode, Edge } from '../types';
 import { addCardFromText } from './actions';
 import { placementPoint } from './camera';
@@ -88,11 +89,42 @@ function onPaste(e: ClipboardEvent) {
   const images = [...data.files].filter((f) => f.type.startsWith('image/'));
   if (images.length) return void addImageFiles(images, placementPoint());
 
-  const text = data.getData('text/plain');
-  if (lastCopy && text === lastCopy.text) return insertCopy(lastCopy.payload, placementPoint());
+  pasteText(data.getData('text/plain'), placementPoint());
+}
+
+/** Plain text from the clipboard: our own copy, a link, or a new card. */
+function pasteText(text: string, at: Point) {
+  if (lastCopy && text === lastCopy.text) return insertCopy(lastCopy.payload, at);
   const url = /^\S+$/.test(text.trim()) && /[./]/.test(text) ? normalizeUrl(text) : null;
-  if (url) return void addLinkAt(url, placementPoint());
-  if (text.trim()) addCardFromText(text);
+  if (url) return void addLinkAt(url, at);
+  if (text.trim()) addCardFromText(text, at);
+}
+
+/** Copy or cut from a menu: runs the same path as Ctrl+C / Ctrl+X via the browser's copy event. */
+export function copySelection(cut = false) {
+  if (!document.execCommand(cut ? 'cut' : 'copy')) {
+    useUI.getState().toast(`Your browser blocked ${cut ? 'cut' : 'copy'} from the menu — use Ctrl+${cut ? 'X' : 'C'} instead.`);
+  }
+}
+
+/** Paste from a menu. Browsers don't fire paste events for this, so read the clipboard directly. */
+export async function pasteFromClipboard(at: Point) {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const type = item.types.find((t) => t.startsWith('image/'));
+      if (type) return addImageFiles([new File([await item.getType(type)], 'pasted-image', { type })], at);
+    }
+    for (const item of items) {
+      if (item.types.includes('text/plain')) return pasteText(await (await item.getType('text/plain')).text(), at);
+    }
+  } catch {
+    try {
+      return pasteText(await navigator.clipboard.readText(), at);
+    } catch {
+      useUI.getState().toast('Your browser blocked clipboard access — use Ctrl+V instead.');
+    }
+  }
 }
 
 export function installClipboard() {

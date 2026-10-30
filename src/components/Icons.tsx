@@ -278,6 +278,69 @@ export const RefreshIcon = () => (
   </Icon>
 );
 
+export const CopyIcon = () => (
+  <Icon size={16}>
+    <rect x="8" y="8" width="12" height="12" rx="2.5" />
+    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+  </Icon>
+);
+
+export const CutIcon = () => (
+  <Icon size={16}>
+    <circle cx="6" cy="18" r="2.5" />
+    <circle cx="18" cy="18" r="2.5" />
+    <path d="M8 16.5L18 4M16 16.5L6 4" />
+  </Icon>
+);
+
+export const PasteIcon = () => (
+  <Icon size={16}>
+    <rect x="5" y="5" width="14" height="16" rx="2.5" />
+    <path d="M9 5V3.5h6V5M9 12h6M9 16h4" />
+  </Icon>
+);
+
+export const DuplicateIcon = () => (
+  <Icon size={16}>
+    <rect x="8" y="8" width="12" height="12" rx="2.5" />
+    <path d="M14 11v6M11 14h6M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+  </Icon>
+);
+
+export const BringFrontIcon = () => (
+  <Icon size={16}>
+    <rect x="8" y="8" width="12" height="12" rx="2" fill="currentColor" fillOpacity={0.15} />
+    <path d="M4 14V6a2 2 0 0 1 2-2h8" strokeDasharray="2 2" />
+  </Icon>
+);
+
+export const SendBackIcon = () => (
+  <Icon size={16}>
+    <rect x="4" y="4" width="12" height="12" rx="2" strokeDasharray="2 2" />
+    <path d="M20 10v8a2 2 0 0 1-2 2h-8" />
+  </Icon>
+);
+
+export const ConnectIcon = () => (
+  <Icon size={16}>
+    <rect x="2.5" y="8" width="7" height="8" rx="2" />
+    <path d="M9.5 12h5M17 9v6M14 12h6" />
+  </Icon>
+);
+
+export const CollapseIcon = () => (
+  <Icon size={16}>
+    <path d="M7 9l5 5 5-5" />
+  </Icon>
+);
+
+export const SelectAllIcon = () => (
+  <Icon size={16}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="3" strokeDasharray="3 3" />
+    <rect x="8" y="8" width="8" height="8" rx="1.5" />
+  </Icon>
+);
+
 export const CaretIcon = () => (
   <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
     <path d="M1.5 3h7L5 7.5z" fill="currentColor" />

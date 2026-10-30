@@ -52,7 +52,7 @@ export function Edges() {
         {items.map(({ edge, d }) => {
           const selected = edge.id === selectedEdgeId;
           return (
-            <g key={edge.id} className={selected ? 'edge selected' : 'edge'}>
+            <g key={edge.id} data-edge-id={edge.id} className={selected ? 'edge selected' : 'edge'}>
               <path
                 className="edge-hit"
                 d={d}
@@ -87,6 +87,7 @@ export function Edges() {
 function EdgeLabel({ edge, x, y, selected, editing }: { edge: Edge; x: number; y: number; selected: boolean; editing: boolean }) {
   return (
     <div
+      data-edge-id={edge.id}
       className={selected ? 'edge-label selected' : 'edge-label'}
       style={{ left: x, top: y }}
       onPointerDown={(e) => selectEdge(e, edge.id)}
