@@ -6,6 +6,7 @@ import { youtubeId, youtubeThumbnail } from '../src/lib/youtube';
 
 /**
  * GET /api/link-preview?url=… → { title, description, image, icon, siteName }
+ * GET /api/image-proxy?url=…  → the image itself (used by PNG/PDF export)
  *
  * Browsers can't read other sites' HTML (CORS), so link cards ask this endpoint,
  * which runs inside the Vite dev/preview server, to fetch the page and read its
@@ -51,15 +52,15 @@ async function assertPublicUrl(url: URL) {
   if (addresses.length === 0 || addresses.some((a) => isPrivateAddress(a.address))) throw new Error('That address is not allowed.');
 }
 
-/** Fetch with manual redirects (each hop re-checked) and a size cap. Returns the HTML head and final URL. */
-async function fetchHtml(start: string): Promise<{ html: string; url: string }> {
+/** Fetch a public URL, following redirects manually so every hop is re-checked. */
+async function safeFetch(start: string, accept: string): Promise<{ res: Response; url: URL }> {
   let url = new URL(start);
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     await assertPublicUrl(url);
     const res = await fetch(url, {
       redirect: 'manual',
       signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { 'user-agent': USER_AGENT, accept: 'text/html,application/xhtml+xml', 'accept-language': 'en' },
+      headers: { 'user-agent': USER_AGENT, accept, 'accept-language': 'en' },
     });
     const location = res.headers.get('location');
     if (res.status >= 300 && res.status < 400 && location) {
@@ -67,22 +68,28 @@ async function fetchHtml(start: string): Promise<{ html: string; url: string }> 
       continue;
     }
     if (!res.ok) throw new Error(`The page answered ${res.status}.`);
-    if (!/html/i.test(res.headers.get('content-type') ?? '')) return { html: '', url: url.href };
-
-    // Metadata lives in <head>; stop reading once it's done or the cap is hit.
-    const reader = res.body!.getReader();
-    const decoder = new TextDecoder();
-    let html = '';
-    while (html.length < MAX_BYTES) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      html += decoder.decode(value, { stream: true });
-      if (/<\/head>/i.test(html)) break;
-    }
-    reader.cancel().catch(() => {});
-    return { html, url: url.href };
+    return { res, url };
   }
   throw new Error('Too many redirects.');
+}
+
+/** The page's HTML head (with a size cap) and its final URL after redirects. */
+async function fetchHtml(start: string): Promise<{ html: string; url: string }> {
+  const { res, url } = await safeFetch(start, 'text/html,application/xhtml+xml');
+  if (!/html/i.test(res.headers.get('content-type') ?? '')) return { html: '', url: url.href };
+
+  // Metadata lives in <head>; stop reading once it's done or the cap is hit.
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let html = '';
+  while (html.length < MAX_BYTES) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    html += decoder.decode(value, { stream: true });
+    if (/<\/head>/i.test(html)) break;
+  }
+  reader.cancel().catch(() => {});
+  return { html, url: url.href };
 }
 
 // ---------- Parse Open Graph / Twitter / HTML metadata ----------
@@ -153,7 +160,26 @@ async function youtubePreview(url: string, id: string): Promise<LinkPreview> {
   }
 }
 
-// ---------- Endpoint ----------
+// ---------- Image proxy ----------
+
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+
+/**
+ * Some image hosts refuse requests made from another site's scripts (CORS), which
+ * export needs in order to copy images into the PNG/PDF. Fetching server-side avoids that.
+ */
+async function proxyImage(target: string, res: ServerResponse) {
+  const { res: upstream } = await safeFetch(target, 'image/*');
+  const type = upstream.headers.get('content-type') ?? '';
+  if (!type.startsWith('image/')) throw new Error('Not an image.');
+  const body = Buffer.from(await upstream.arrayBuffer());
+  if (body.length > MAX_IMAGE_BYTES) throw new Error('Image too large.');
+  res.setHeader('content-type', type);
+  res.setHeader('cache-control', 'private, max-age=3600');
+  res.end(body);
+}
+
+// ---------- Endpoints ----------
 
 const cache = new Map<string, { at: number; value: LinkPreview }>();
 
@@ -173,6 +199,7 @@ async function preview(target: string): Promise<LinkPreview> {
 }
 
 async function handle(req: IncomingMessage, res: ServerResponse, next: () => void) {
+  if (req.url?.startsWith('/api/image-proxy')) return handleImage(req, res);
   if (!req.url?.startsWith('/api/link-preview')) return next();
   const target = new URL(req.url, 'http://localhost').searchParams.get('url') ?? '';
   res.setHeader('content-type', 'application/json');
@@ -183,6 +210,16 @@ async function handle(req: IncomingMessage, res: ServerResponse, next: () => voi
   } catch (err) {
     res.statusCode = 422;
     res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'Preview failed' }));
+  }
+}
+
+async function handleImage(req: IncomingMessage, res: ServerResponse) {
+  try {
+    await proxyImage(new URL(new URL(req.url!, 'http://localhost').searchParams.get('url') ?? '').href, res);
+  } catch (err) {
+    res.statusCode = 422;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'Image failed' }));
   }
 }
 

@@ -45,6 +45,47 @@ function inlineSvgPaint(root: HTMLElement) {
     );
 }
 
+const toDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
+async function downloadImage(src: string): Promise<string | null> {
+  const attempts = [src, `/api/image-proxy?url=${encodeURIComponent(src)}`];
+  for (const url of attempts) {
+    try {
+      const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+      const blob = await res.blob();
+      if (res.ok && blob.type.startsWith('image/')) return toDataUrl(blob);
+    } catch {
+      // Try the next way.
+    }
+  }
+  return null;
+}
+
+/**
+ * Swap external images for inline copies so they make it into the export.
+ * Some hosts (e.g. Sanity's CDN) block the cross-site download the exporter
+ * does; those are fetched through the app's own image proxy instead.
+ */
+async function inlineExternalImages(root: HTMLElement) {
+  const images = [...root.querySelectorAll('img')].filter((img) => /^https?:/i.test(img.src) && new URL(img.src).origin !== location.origin);
+  const originals = images.map((img) => img.src);
+  await Promise.all(
+    images.map(async (img) => {
+      const data = await downloadImage(img.src);
+      if (!data) return;
+      img.src = data;
+      await img.decode().catch(() => {});
+    }),
+  );
+  return () => images.forEach((img, i) => (img.src = originals[i]));
+}
+
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
 /** Render every node on the board (not just what's on screen) to an image data URL. */
@@ -65,6 +106,7 @@ async function renderBoard(format: 'png' | 'jpeg' = 'png') {
   const width = Math.ceil(b.width + PAD * 2);
   const height = Math.ceil(b.height + PAD * 2);
   const restorePaint = inlineSvgPaint(world);
+  const restoreImages = await inlineExternalImages(world);
   try {
     const dataUrl = await (format === 'png' ? toPng : toJpeg)(world, {
       quality: 0.92,
@@ -80,6 +122,7 @@ async function renderBoard(format: 'png' | 'jpeg' = 'png') {
     return { dataUrl, width, height };
   } finally {
     restorePaint();
+    restoreImages();
     useBoard.getState().select(selection.ids);
     if (selection.edge) useBoard.getState().selectEdge(selection.edge);
   }
